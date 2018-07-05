@@ -1,8 +1,7 @@
 from __future__ import print_function
 
 from setuptools import setup
-from glob import glob
-from manga_py.meta import __version__, __downloader_uri__
+from manga_py.meta import __version__, __downloader_uri__, __author__, __email__, __license__
 from os import path
 
 
@@ -18,44 +17,60 @@ REQUIREMENTS = [
     'packaging',
     'pyexecjs>=1.5.1',
     'html-purifier',
+    'peewee>3.4.0',
 ]
+
+
+if path.isfile('requirements.txt'):
+    with open('requirements.txt') as f:
+        REQUIREMENTS = f.read()
+
 
 long_description = ''
 if path.isfile('README.rst'):
     with open('README.rst') as f:
         long_description = f.read()
 
+
+release_status = 'Development Status :: 1 - Planning'
+# release_status = 'Development Status :: 4 - Beta'
+# if __version__.find('alpha'):
+#     release_status = 'Development Status :: 3 - Alpha'
+
+
 setup(
     name='manga_py',
     packages=[
         'manga_py',
-        'manga_py.base_classes',
-        'manga_py.crypt',
-        'manga_py.http',
-        'manga_py.providers',
-        'manga_py.providers.helpers',
-        'manga_py.server',
+        'manga_py.cli',
+        'manga_py.cli.args',
+        'manga_py.libs.base',
+        'manga_py.libs.crypt',
+        'manga_py.libs.http',
+        'manga_py.libs.modules',
+        'manga_py.libs.modules.html',
+        'manga_py.libs.modules.html.templates',
+        'manga_py.libs.providers',
     ],
     include_package_data=True,
     version=__version__,
     description='Universal assistant download manga.',
     long_description=long_description,
-    author='Zharkov Sergey',
-    author_email='sttv-pc@mail.ru',
+    author=__author__,
+    author_email=__email__,
     url=__downloader_uri__,
     zip_safe=False,
     data_files=[
-        ('manga_py/gui/langs', glob('manga_py/gui/langs/*.json')),
-        ('manga_py/storage', [
-            'manga_py/storage/.passwords.json.dist',
-            'manga_py/storage/.proxy.txt',
-        ])
+        # ('manga_py/storage', [
+        #     'manga_py/storage/.passwords.json.dist',
+        #     'manga_py/storage/.proxy.txt',
+        # ]),
     ],
     download_url='{}/archive/{}.tar.gz'.format(__downloader_uri__, __version__),
-    keywords=['manga-downloader', 'manga'],
-    license='MIT',
+    keywords=['manga-downloader', 'manga', 'manga-py'],
+    license=__license__,
     classifiers=[  # look here https://pypi.python.org/pypi?%3Aaction=list_classifiers
-        'Development Status :: 4 - Beta',
+        release_status,
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         'Environment :: Console',
