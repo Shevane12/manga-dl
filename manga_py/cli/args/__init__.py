@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+
 from . import _debug
 from . import _downloading
 from . import _general
@@ -6,7 +7,11 @@ from . import _image
 from . import _reader
 
 
-def get_cli_arguments(as_dict=True) -> dict:
+def get_cli_arguments() -> ArgumentParser:
+    """
+    :return:
+    :rtype: ArgumentParser
+    """
     args_parser = ArgumentParser(add_help=False)
 
     _general.main(args_parser)
@@ -15,5 +20,15 @@ def get_cli_arguments(as_dict=True) -> dict:
     _downloading.main(args_parser)
     _debug.main(args_parser)
 
-    args = args_parser.parse_args()
-    return args.__dict__ if as_dict else args
+    return args_parser
+
+
+def arguments_to_dict(arguments: ArgumentParser = None) -> dict:
+    """
+    :param arguments:
+    :return:
+    :rtype: dict
+    """
+    if arguments is None:
+        arguments = get_cli_arguments()
+    return arguments.parse_args().__dict__

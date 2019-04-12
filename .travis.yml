@@ -7,6 +7,7 @@ language: python
 python:
   - "3.5"
   - "3.6"
+#  - "3.7"
 #  - "nightly"
 cache: pip
 #before_install:
@@ -17,17 +18,16 @@ cache: pip
 #  - chmod +x helpers/before_deploy.sh
 #  - chmod +x helpers/before_script.sh
 #  - source ./helpers/before_script.sh
-#install:
+install:
 #  - npm install -g sass node-sass html-minifier
-#  - pip install --upgrade coverage codeclimate-test-reporter setuptools pyinstaller pyvirtualdisplay
+  - 'pip install -U coverage codeclimate-test-reporter setuptools pyinstaller pyvirtualdisplay'
 #  - pip install -r requirements.txt
 #before_script:
 #  - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
 #  - chmod +x ./cc-test-reporter
 #  - ./cc-test-reporter before-build
 script:
-  - echo 'Skip'
-#  - if [[ "$TRAVIS_TAG" = "" ]]; then coverage run --omit=manga_py/providers/*.py --source=manga_py pytest.py; fi
+  - coverage run --omit=manga_py/cli/args/*.py,manga_py/providers/__list.py --source=manga_py setup.py test
 after_script:
   - source ./helpers/after_script.sh
 #before_deploy:

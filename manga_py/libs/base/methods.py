@@ -1,4 +1,7 @@
-from typing import overload
+from progressbar import ProgressBar
+from zenlog import Log
+from getpass import getpass
+from manga_py.libs.modules.info import Info
 
 
 class Methods:
@@ -17,6 +20,19 @@ class Methods:
 
     @property
     def logger(self):
+        """
+        Returned logger class with next methods:
+        .debug('text')
+        .info('text')
+        .warn('text')
+        .error('text')
+        .critical('text')
+
+        See https://github.com/manufacturaind/python-zenlog/
+
+        :return:
+        :rtype: Log
+        """
         return self.__get_callback('logger')
 
     @logger.setter
@@ -24,7 +40,9 @@ class Methods:
         self.__methods['logger'] = value
 
     @property
+    @callable
     def print(self):
+        __doc__ = print.__doc__
         return self.__get_callback('print')
 
     @print.setter
@@ -32,7 +50,15 @@ class Methods:
         self.__methods['print'] = value
 
     @property
+    @callable
     def print_error(self):
+        __doc__ = print.__doc__
+        return self.__get_callback('print_error')
+
+    @property
+    @callable
+    def print_info(self):
+        __doc__ = print.__doc__
         return self.__get_callback('print_error')
 
     @print_error.setter
@@ -40,7 +66,9 @@ class Methods:
         self.__methods['print_error'] = value
 
     @property
+    @callable
     def input(self):
+        __doc__ = input.__doc__
         return self.__get_callback('input')
 
     @input.setter
@@ -48,16 +76,22 @@ class Methods:
         self.__methods['input'] = value
 
     @property
+    @callable
     def password(self):
+        __doc__ = getpass.__doc__
         return self.__get_callback('password')
 
     @password.setter
     def password(self, value):
         self.__methods['password'] = value
-        pass
 
     @property
+    @callable
     def info(self):
+        """
+        :return:
+        :rtype: Info
+        """
         return self.__get_callback('info')
 
     @info.setter
@@ -66,6 +100,10 @@ class Methods:
 
     @property
     def progressbar(self):
+        """
+        :return:
+        :rtype: ProgressBar
+        """
         return self.__get_callback('progressbar')
 
     @progressbar.setter
@@ -73,19 +111,24 @@ class Methods:
         self.__methods['progressbar'] = value
 
     def arg(self, key, default=None):
+        key = key.replace('-', '_')
         return self._args.get(key, default)
 
-    def _log(self):
-        return self.arg('show_log', False)
+    def _log(self) -> bool:
+        return self.arg('show-log', False) or self._verbose_log()
 
     def _verbose_log(self):
-        return self.arg('verbose_log', False)
+        return self.arg('verbose-log', False)
 
     def log_info(self, *args):
-        self._log() and self.logger.info(*args)
+        self._verbose_log() and self.logger.info(*args)
 
     def log_warning(self, *args):
         self._log() and self.logger.warn(*args)
 
-    def log_crit(self, *args):
-        self._log() and self.logger.critical(*args)
+    def log_critical(self, *args):
+        self.logger.critical(*args)
+
+    def set_callbacks(self, **kwargs):
+        for key in kwargs:
+            setattr(self, key, kwargs[key])

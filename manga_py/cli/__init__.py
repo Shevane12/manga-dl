@@ -1,66 +1,90 @@
 import atexit
-from getpass import getpass
+import json
 from shutil import rmtree
-from sys import stderr
 
-import better_exceptions
-from progressbar import ProgressBar
 from zenlog import log
 
-from manga_py.cli.args import get_cli_arguments
-from manga_py.libs.fs import get_temp_path, make_dirs
-from manga_py.libs.info import Info
-from manga_py.libs.providers import get_provider
-from manga_py.libs import print_lib
+from manga_py.libs import fs
+from manga_py.libs.modules import info
+from . import args
+from ._helper import CliHelper
+from .db import DataBase
+from manga_py.provider import Provider
+from manga_py.libs.db import Manga
 
 
-class Cli:
-    info = None
-    _temp_path = None
+class Cli(CliHelper):
+    db = None
 
     def __init__(self):
+        self._temp_path = fs.get_temp_path()
         atexit.register(self.exit)
-        self._temp_path = get_temp_path()
-        make_dirs(self._temp_path)
+        fs.make_dirs(self._temp_path)
+        self.global_info = info.InfoGlobal()
+        self.db = DataBase()
 
     def exit(self):
         # remove temp directory
         rmtree(self._temp_path)
 
-    @classmethod
-    def print_error(cls, *args):
-        print_lib(*args, file=stderr)
-
     def run(self):
-        better_exceptions.hook()
-        args = get_cli_arguments()
-        self.info = Info(args)
-        urls = args.get('url', [])
+        _args = self._args.copy()
+        if _args.get('title'):  # todo: Maybe search for user-urls only
+            urls = self._search_for_title(_args.get('title'))
+        else:
+            self._print_cli_help()
+            urls = _args.get('url', []).copy()
+        _args.get('force_make_db', False) and self.db.clean()
 
+        if self._args.get('update_all'):
+            self._update_all()
+        else:
+            if len(urls) > 1:
+                _args['name'] = None
+                _args['skip_volumes'] = None
+                _args['max_volumes'] = None
+            self._run_normal(_args, urls)
+
+    def _update_all(self):
+        default_args = self.get_default_args()
+        for manga in self.db.get_all():  # type: Manga
+            self.show_log() and log.info('Update %s', manga.url)
+            _args = default_args.copy()
+            data = json.loads(manga.data)
+            data_args = data.get('args', {})
+            del data_args['rewrite_exists_archives']
+            del data_args['user_agent']
+            del data_args['url']
+
+            if not fs.is_dir(fs.path_join(data_args['destination'], data_args['name'])):
+                self.show_log() and log.warn('Destination not exists. Skip')
+                continue
+
+            _args.update({  # re-init args
+                'url': manga.url,
+                **data_args,
+            })
+            provider = self._get_provider(_args)  # type: Provider
+            if provider:
+                provider.before_provider(_args)
+                provider.http.cookies = data.get('cookies')
+                provider.http.ua = data.get('browser')
+                provider.run(_args)
+                provider.after_provider()
+                provider.update_db()
+                self.global_info.add_info(info)
+            else:
+                self.show_log() and log.error('Provider not exists')
+
+    def _run_normal(self, _args, urls):
         for url in urls:
-            provider = get_provider(url)
-
-            provider.print = print_lib
-            provider.print_error = self.print_error
-            provider.input = input
-            provider.password = getpass
-            provider.logger = log
-            provider.info = self.info
-            provider.progressbar = ProgressBar
-
-            args['url'] = url
-            provider.run(args)
-
-    # @classmethod
-    # def check_version(cls):
-    #     api_url = 'https://api.github.com/repos/%s/releases/latest' % meta.__repo_name__
-    #     api_content = json.loads(Http().get(api_url).text)
-    #     tag_name = api_content['tag_name']
-    #     if version.parse(tag_name) > version.parse(meta.__version__):
-    #         download_addr = api_content['assets']
-    #         if len(download_addr):
-    #             url = download_addr[0]['browser_download_url']
-    #         else:
-    #             url = api_content['html_url']
-    #         return {'message': 'Found new version', 'tag': tag_name, 'url': url, 'need_update': True}
-    #     return {'message': 'Ok', 'need_update': False, 'tag': '', 'url': ''}
+            _args['url'] = url
+            provider = self._get_provider(_args)  # type: Provider
+            if provider:
+                provider.before_provider(_args)
+                provider.run(_args)
+                provider.after_provider()
+                provider.update_db()
+                self.global_info.add_info(info)
+            else:
+                self.show_log() and log.warn('Provider not exists')

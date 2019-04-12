@@ -1,74 +1,142 @@
-from __future__ import print_function
-
 from setuptools import setup
-from manga_py.meta import __version__, __downloader_uri__, __author__, __email__, __license__
-from os import path
+from setuptools.command.install import install
+from manga_py import meta
+from os import name, chmod, unlink
+from subprocess import Popen, PIPE
+from re import search
+from tempfile import gettempdir
+from sys import stderr
+from pathlib import Path
 
 
 REQUIREMENTS = [
-    'lxml',
-    'cssselect',
-    'Pillow',
-    'requests',
-    'pycrypto',
-    'cfscrape',
-    'progressbar2',
-    'urllib3',
-    'packaging',
+    'lxml>=3.7.2',
+    'cssselect>=1.0.0',
+    'Pillow>=4.3',
+    'requests>=2.14',
+    'pycrypto>=2.5',
+    'cfscrape>=1.9.5',
+    'progressbar2>3.34',
+    'urllib3<1.23>=1.21.1',
+    'packaging>=17',
+    'html-purifier>=0.1.9',
     'pyexecjs>=1.5.1',
-    'html-purifier',
     'peewee>3.4.0',
+    'tinycss>=0.4',
+    'better_exceptions>=0.2',
+    'zenlog>=1.1',
+    'argcomplete>=1.9.4',
+    'tabulate>=0.8',
 ]
 
 
-if path.isfile('requirements.txt'):
+def walk(_path: str) -> tuple:
+    """
+    :param _path:
+    :return: tuple(_path, tuple('dirs',), tuple('files',))
+    """
+    dirs = []
+    files = []
+    path = Path(_path)
+    for i in path.iterdir():
+        if i.is_file():
+            files.append(str(i))
+        if i.is_dir():
+            dirs.append(str(i))
+    return path.resolve(), dirs, files
+
+
+# generate manga_py/libs/modules/html/templates/__init__.py
+def generate_html_template():
+    data_files = 'manga_py/libs/modules/html/templates'
+    pass
+
+
+if Path('requirements.txt').is_file():
     with open('requirements.txt') as f:
         REQUIREMENTS = f.read()
 
 
 long_description = ''
-if path.isfile('README.rst'):
+if Path('README.rst').is_file():
     with open('README.rst') as f:
         long_description = f.read()
 
 
 release_status = 'Development Status :: 1 - Planning'
-# release_status = 'Development Status :: 4 - Beta'
-# if __version__.find('alpha'):
+# release_status = 'Development Status :: 5 - Production/Stable'
+# if ~__version__.find('beta'):
+#     release_status = 'Development Status :: 4 - Beta'
+# if ~__version__.find('alpha'):
 #     release_status = 'Development Status :: 3 - Alpha'
 
 
-setup(
+class PostInstallCommand(install):
+    """Post-installation for installation mode."""
+    @staticmethod
+    def _make_sh(_temp_file, complete_sh):
+        with open(_temp_file, 'w') as f:
+            f.write(''.join([
+                '#!/bin/sh\n',
+                'if [ `cat ~/.bashrc | grep {0} | wc -l` -lt 1 ];',
+                ' then echo ". {0}" >> ~/.bashrc &&',
+                ' echo "Please, restart you shell"; fi'
+            ]).format(complete_sh))
+        chmod(_temp_file, 0o755)
+
+    @staticmethod
+    def _parse_out(out):
+        if isinstance(out, bytes):
+            out = out.decode()
+        _sh = search(r'\w\s(/.+?\.sh)', out)
+        return _sh.group(1)
+
+    def run(self):
+        install.run(self)
+        if name.find('nt') == -1:
+            print('Activate argcomplete')
+            process = Popen([
+                'activate-global-python-argcomplete',
+                '--user'
+            ], stdout=PIPE, stderr=PIPE)
+            out, err = process.communicate(timeout=1)
+            if process.returncode == 0:
+                sh = self._parse_out(out)
+                _temp_file = Path(gettempdir()).joinpath('manga-py.sh')
+                self._make_sh(_temp_file, sh)
+                Popen([str(_temp_file)]).communicate(timeout=1)
+                unlink(str(_temp_file))
+            else:
+                print('ERROR! %s' % err, file=stderr)
+
+
+setup(  # https://setuptools.readthedocs.io/en/latest/setuptools.html#namespace-packages
     name='manga_py',
     packages=[
         'manga_py',
         'manga_py.cli',
         'manga_py.cli.args',
+        'manga_py.libs',
         'manga_py.libs.base',
         'manga_py.libs.crypt',
         'manga_py.libs.http',
         'manga_py.libs.modules',
         'manga_py.libs.modules.html',
         'manga_py.libs.modules.html.templates',
-        'manga_py.libs.providers',
+        'manga_py.providers',
     ],
     include_package_data=True,
-    version=__version__,
+    version=meta.__version__,
     description='Universal assistant download manga.',
     long_description=long_description,
-    author=__author__,
-    author_email=__email__,
-    url=__downloader_uri__,
-    zip_safe=False,
-    data_files=[
-        # ('manga_py/storage', [
-        #     'manga_py/storage/.passwords.json.dist',
-        #     'manga_py/storage/.proxy.txt',
-        # ]),
-    ],
-    download_url='{}/archive/{}.tar.gz'.format(__downloader_uri__, __version__),
-    keywords=['manga-downloader', 'manga', 'manga-py'],
-    license=__license__,
+    author=meta.__author__,
+    author_email=meta.__email__,
+    url=meta.__download_uri__,
+    zip_safe=True,
+    data_files=[],
+    download_url='{}/archive/{}.tar.gz'.format(meta.__download_uri__, meta.__version__),
+    keywords=['manga-downloader', 'manga', 'manga-py', 'manga-dl'],
+    license=meta.__license__,
     classifiers=[  # look here https://pypi.python.org/pypi?%3Aaction=list_classifiers
         release_status,
         'License :: OSI Approved :: MIT License',
@@ -76,13 +144,19 @@ setup(
         'Environment :: Console',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Topic :: Internet :: WWW/HTTP',
     ],
-    python_requires='>=3.5',
+    python_requires='>=3.5.3',
     install_requires=REQUIREMENTS,
+    cmdclass={
+        'install': PostInstallCommand,
+    },
     entry_points={
         'console_scripts': [
             'manga-py = manga_py:main',
+            'manga-py-db = manga_py:db_main',
         ]
-    }
+    },
+    test_suite='tests',
 )

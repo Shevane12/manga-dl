@@ -1,13 +1,18 @@
-
 class Callbacks:
-    def before_chapter(self):
+
+    def __init__(self):
+        super().__init__()
+
+    def before_chapter(self, chapter):
         pass
 
-    def after_chapter(self):
+    def after_chapter(self, chapter):
         pass
 
-    def before_file_save(self, url: str, idx: int) -> str:  # return url!
-        return url
+    def before_download(self, file):
+        """ Before each file """
+        pass
 
-    def after_file_save(self, _path, idx: int):
+    def after_download(self, file):
+        """ After each file """
         pass
